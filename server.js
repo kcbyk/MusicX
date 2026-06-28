@@ -3,10 +3,55 @@ const path = require('path');
 const fs = require('fs-extra');
 const axios = require('axios');
 const cors = require('cors');
-const ytdl = require('yt-dlp-exec');
+const { spawn } = require('child_process');
+const ytdlSearch = require('yt-dlp-exec');        // search only (works fine)
+const ytdlCore  = require('@distube/ytdl-core');  // download (no binary, InnerTube API)
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 
 process.env.PATH = path.dirname(ffmpegPath) + path.delimiter + process.env.PATH;
+
+// Helper: stream YouTube audio → pipe through ffmpeg → save as MP3
+function downloadAsMp3(videoUrl, outputPath) {
+  return new Promise((resolve, reject) => {
+    const audioStream = ytdlCore(videoUrl, {
+      filter: 'audioonly',
+      quality: 'highestaudio',
+      requestOptions: {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+          'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7'
+        }
+      }
+    });
+
+    const ffmpegProc = spawn(ffmpegPath, [
+      '-i', 'pipe:0',
+      '-vn',
+      '-acodec', 'libmp3lame',
+      '-ab', '128k',
+      '-ar', '44100',
+      '-y',
+      outputPath
+    ]);
+
+    audioStream.pipe(ffmpegProc.stdin);
+
+    let ffmpegStderr = '';
+    ffmpegProc.stderr.on('data', d => { ffmpegStderr += d.toString(); });
+
+    audioStream.on('error', err => {
+      ffmpegProc.kill();
+      reject(err);
+    });
+
+    ffmpegProc.on('close', code => {
+      if (code === 0) resolve();
+      else reject(new Error('ffmpeg error (code ' + code + '): ' + ffmpegStderr.slice(-300)));
+    });
+
+    ffmpegProc.on('error', reject);
+  });
+}
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -116,13 +161,12 @@ app.get('/api/search', async (req, res) => {
 
     console.log('Arama yapılıyor:', q);
 
-    // Call yt-dlp-exec natively (platform agnostic)
-    const searchResult = await ytdl(`ytsearch8:${q.replace(/"/g, '')}`, {
+    // Search uses yt-dlp-exec (works fine on Render)
+    const searchResult = await ytdlSearch(`ytsearch8:${q.replace(/"/g, '')}`, {
       dumpSingleJson: true,
       noWarnings: true,
       flatPlaylist: true,
-      extractorArgs: 'youtube:player_client=ios,android',
-      jsRuntimes: 'node'
+      extractorArgs: 'youtube:player_client=ios,android'
     });
 
     const results = [];
@@ -256,21 +300,9 @@ app.post('/api/download', async (req, res) => {
     }
 
     console.log('Şarkı indiriliyor:', title);
-    
-    // Call yt-dlp-exec directly for download (platform agnostic)
-    await ytdl(url, {
-      extractAudio: true,
-      audioFormat: 'mp3',
-      audioQuality: '5',
-      format: 'bestaudio[ext=m4a]/bestaudio/best',
-      concurrentFragments: 4,
-      noPlaylist: true,
-      noPart: true,
-      ffmpegLocation: path.dirname(ffmpegPath),
-      output: musicPath,
-      extractorArgs: 'youtube:player_client=ios,android',
-      jsRuntimes: 'node'
-    });
+
+    // Download with @distube/ytdl-core (InnerTube API, no binary, no bot block)
+    await downloadAsMp3(url, musicPath);
 
     const newSong = {
       id: videoId,
