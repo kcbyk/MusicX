@@ -11,40 +11,20 @@ const os = require('os');
 
 process.env.PATH = path.dirname(ffmpegPath) + path.delimiter + process.env.PATH;
 
-// Write YouTube cookies from env var to a temp file on disk (Render passes them as env var)
-let COOKIES_FILE = null;
-async function getCookiesFile() {
-  if (COOKIES_FILE) return COOKIES_FILE;
-  const cookiesEnv = process.env.YOUTUBE_COOKIES;
-  if (!cookiesEnv) return null;
-  const tmpPath = path.join(os.tmpdir(), 'yt_cookies.txt');
-  await fs.writeFile(tmpPath, cookiesEnv, 'utf8');
-  COOKIES_FILE = tmpPath;
-  console.log('YouTube cookies loaded from environment variable.');
-  return COOKIES_FILE;
-}
-
-// Download YouTube audio to MP3 using yt-dlp + cookies
+// Download YouTube audio to MP3 using yt-dlp (emulating Android player client, no cookies needed)
 async function downloadAsMp3(videoUrl, outputPath) {
-  const cookiesFile = await getCookiesFile();
-
   const options = {
     extractAudio: true,
     audioFormat: 'mp3',
     audioQuality: '5',
-    format: 'bestaudio/best',   // relaxed format: any best audio
+    format: 'bestaudio/best',
     noPlaylist: true,
     noPart: true,
     ffmpegLocation: path.dirname(ffmpegPath),
     output: outputPath,
-    extractorArgs: 'youtube:player_client=web',  // web client supports cookies
-    jsRuntimes: 'node'                            // use Node.js for signature solving
+    extractorArgs: 'youtube:player_client=android', // Simulates Android app player (no bot block / no cookies needed)
+    jsRuntimes: 'node'                            // Uses local Node.js for signature decryption
   };
-
-  if (cookiesFile) {
-    options.cookies = cookiesFile;
-    console.log('Using cookies for download.');
-  }
 
   await ytdlExec(videoUrl, options);
 }
