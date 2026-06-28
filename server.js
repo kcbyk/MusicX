@@ -4,53 +4,47 @@ const fs = require('fs-extra');
 const axios = require('axios');
 const cors = require('cors');
 const { spawn } = require('child_process');
-const ytdlSearch = require('yt-dlp-exec');        // search only (works fine)
-const ytdlCore  = require('@distube/ytdl-core');  // download (no binary, InnerTube API)
+const ytdlSearch = require('yt-dlp-exec'); // search (works fine)
+const ytdlExec   = require('yt-dlp-exec'); // download with cookies
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+const os = require('os');
 
 process.env.PATH = path.dirname(ffmpegPath) + path.delimiter + process.env.PATH;
 
-// Helper: stream YouTube audio → pipe through ffmpeg → save as MP3
-function downloadAsMp3(videoUrl, outputPath) {
-  return new Promise((resolve, reject) => {
-    const audioStream = ytdlCore(videoUrl, {
-      filter: 'audioonly',
-      quality: 'highestaudio',
-      requestOptions: {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-          'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7'
-        }
-      }
-    });
+// Write YouTube cookies from env var to a temp file on disk (Render passes them as env var)
+let COOKIES_FILE = null;
+async function getCookiesFile() {
+  if (COOKIES_FILE) return COOKIES_FILE;
+  const cookiesEnv = process.env.YOUTUBE_COOKIES;
+  if (!cookiesEnv) return null;
+  const tmpPath = path.join(os.tmpdir(), 'yt_cookies.txt');
+  await fs.writeFile(tmpPath, cookiesEnv, 'utf8');
+  COOKIES_FILE = tmpPath;
+  console.log('YouTube cookies loaded from environment variable.');
+  return COOKIES_FILE;
+}
 
-    const ffmpegProc = spawn(ffmpegPath, [
-      '-i', 'pipe:0',
-      '-vn',
-      '-acodec', 'libmp3lame',
-      '-ab', '128k',
-      '-ar', '44100',
-      '-y',
-      outputPath
-    ]);
+// Download YouTube audio to MP3 using yt-dlp + cookies
+async function downloadAsMp3(videoUrl, outputPath) {
+  const cookiesFile = await getCookiesFile();
 
-    audioStream.pipe(ffmpegProc.stdin);
+  const options = {
+    extractAudio: true,
+    audioFormat: 'mp3',
+    audioQuality: '5',
+    format: 'bestaudio[ext=m4a]/bestaudio/best',
+    noPlaylist: true,
+    noPart: true,
+    ffmpegLocation: path.dirname(ffmpegPath),
+    output: outputPath,
+    extractorArgs: 'youtube:player_client=ios,web'
+  };
 
-    let ffmpegStderr = '';
-    ffmpegProc.stderr.on('data', d => { ffmpegStderr += d.toString(); });
+  if (cookiesFile) {
+    options.cookies = cookiesFile;
+  }
 
-    audioStream.on('error', err => {
-      ffmpegProc.kill();
-      reject(err);
-    });
-
-    ffmpegProc.on('close', code => {
-      if (code === 0) resolve();
-      else reject(new Error('ffmpeg error (code ' + code + '): ' + ffmpegStderr.slice(-300)));
-    });
-
-    ffmpegProc.on('error', reject);
-  });
+  await ytdlExec(videoUrl, options);
 }
 
 const app = express();
