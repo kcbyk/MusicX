@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MusicX - Müzik Uygulaması</title>
+  <meta name="description" content="MusicX ile YouTube'dan müzik indirin ve dinleyin. Ücretsiz müzik indirici.">
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+
+    <!-- ========== SIDEBAR ========== -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <div class="logo-icon">
+            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="40" height="40" rx="10" fill="url(#logoGrad)"/>
+              <defs>
+                <linearGradient id="logoGrad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#1DB954"/>
+                  <stop offset="100%" stop-color="#0d8a3c"/>
+                </linearGradient>
+              </defs>
+              <path d="M20 10C14.48 10 10 14.48 10 20v3c0 1.1.9 2 2 2h1v-5h-1v-1c0-4.42 3.58-8 8-8s8 3.58 8 8v1h-1v5h1c1.1 0 2-.9 2-2v-3c0-5.52-4.48-10-10-10z" fill="white"/>
+              <rect x="14" y="22" width="2.5" height="6" rx="1.25" fill="white" opacity="0.9"/>
+              <rect x="18" y="19" width="2.5" height="9" rx="1.25" fill="white"/>
+              <rect x="22" y="21" width="2.5" height="7" rx="1.25" fill="white" opacity="0.9"/>
+              <rect x="26" y="23" width="2.5" height="5" rx="1.25" fill="white" opacity="0.7"/>
+            </svg>
+          </div>
+          <span class="logo-text">MusicX</span>
+        </div>
+      </div>
+
+      <nav class="nav-menu">
+        <a href="#" class="nav-item active" data-page="home">
+          <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+          <span>Ana Sayfa</span>
+        </a>
+        <a href="#" class="nav-item" data-page="download">
+          <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+          <span>İndir</span>
+        </a>
+        <a href="#" class="nav-item" data-page="library">
+          <svg class="nav-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+          <span>Kütüphane</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="footer-inner">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" style="color:var(--accent);flex-shrink:0">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+          </svg>
+          <span class="footer-text">Premium Müzik</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Mobile Overlay -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <!-- ========== MAIN CONTENT ========== -->
+    <main class="main-content">
+
+      <!-- ---- HOME PAGE ---- -->
+      <section class="page active" id="home-page">
+        <!-- Sticky header with scrim -->
+        <div class="sticky-header" id="home-header">
+          <div class="sticky-header-inner">
+            <button class="hamburger-btn" id="sidebar-toggle-fixed" aria-label="Menü">
+              <svg fill="currentColor" viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+            </button>
+          </div>
+          <div class="sticky-scrim"></div>
+        </div>
+
+        <!-- Page body (scrollable content) -->
+        <div class="page-body">
+          <div class="welcome-section">
+            <div class="welcome-badge">🎵 Hoş Geldin</div>
+            <h1>Müziğini Keşfet</h1>
+            <p>YouTube'dan istediğin şarkıları indir ve dilediğin zaman dinle.</p>
+          </div>
+
+          <section class="quick-actions">
+            <button class="quick-btn quick-btn-primary" onclick="navigateTo('download')">
+              <div class="quick-btn-icon">
+                <svg fill="currentColor" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+              </div>
+              <div class="quick-btn-text">
+                <span class="quick-btn-title">Hızlı İndir</span>
+                <span class="quick-btn-sub">YouTube'dan müzik indir</span>
+              </div>
+            </button>
+            <button class="quick-btn quick-btn-secondary" onclick="navigateTo('library')">
+              <div class="quick-btn-icon">
+                <svg fill="currentColor" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z"/></svg>
+              </div>
+              <div class="quick-btn-text">
+                <span class="quick-btn-title">Kütüphanem</span>
+                <span class="quick-btn-sub">İndirilen şarkılar</span>
+              </div>
+            </button>
+          </section>
+
+          <!-- Recently Added -->
+          <div id="home-library-section" class="home-library-section" style="display:none">
+            <div class="section-header">
+              <h2 class="section-title">Son Eklenenler</h2>
+              <button class="see-all-btn" onclick="navigateTo('library')">Tümünü Gör</button>
+            </div>
+            <div class="library-grid mini-grid" id="home-library-grid"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---- DOWNLOAD PAGE ---- -->
+      <section class="page" id="download-page">
+        <!-- Sticky header with scrim -->
+        <div class="sticky-header" id="download-header">
+          <div class="sticky-header-inner">
+            <button class="hamburger-btn" id="sidebar-toggle-download" aria-label="Menü">
+              <svg fill="currentColor" viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+            </button>
+            <!-- Download Search Bar -->
+            <div class="searchbar searchbar-download" id="download-searchbar">
+              <div class="searchbar-inner">
+                <svg class="searchbar-icon" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                </svg>
+                <input
+                  type="text"
+                  id="unified-input"
+                  class="searchbar-input"
+                  placeholder="Şarkı ara veya YouTube linki yapıştır..."
+                  autocomplete="off"
+                  spellcheck="false"
+                >
+                <button class="searchbar-clear" id="clear-input-btn" aria-label="Temizle" style="display:none">
+                  <svg fill="currentColor" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                </button>
+              </div>
+              <button class="searchbar-btn" id="unified-btn" aria-label="Ara">
+                <svg fill="currentColor" viewBox="0 0 24 24" width="18" height="18"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                <span>Ara</span>
+              </button>
+            </div>
+          </div>
+          <div class="sticky-scrim"></div>
+        </div>
+
+        <!-- Page body -->
+        <div class="page-body">
+          <!-- Loading -->
+          <div class="loading-state" id="loading-state" style="display:none">
+            <div class="spinner-wrap">
+              <div class="spinner"></div>
+              <div class="spinner-ring"></div>
+            </div>
+            <p id="loading-text">İşlem yapılıyor...</p>
+            <span class="loading-sub">Bu işlem biraz zaman alabilir</span>
+          </div>
+
+          <!-- Search Results -->
+          <div class="search-results" id="search-results" style="display:none">
+            <p class="results-label">ARAMA SONUÇLARI</p>
+            <div class="results-grid" id="results-grid"></div>
+          </div>
+
+          <!-- Song Preview -->
+          <div class="song-preview" id="song-preview" style="display:none">
+            <div class="preview-cover" id="preview-cover"></div>
+            <div class="preview-info">
+              <h3 id="preview-title">Şarkı Adı</h3>
+              <p id="preview-artist">Sanatçı</p>
+              <span class="duration-badge" id="preview-duration">0:00</span>
+            </div>
+            <button class="download-action-btn" id="download-btn">
+              <svg fill="currentColor" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+              <span>İndir</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---- LIBRARY PAGE ---- -->
+      <section class="page" id="library-page">
+        <!-- Sticky header with scrim -->
+        <div class="sticky-header" id="library-header">
+          <div class="sticky-header-inner">
+            <button class="hamburger-btn" id="sidebar-toggle-library" aria-label="Menü">
+              <svg fill="currentColor" viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+            </button>
+            <div class="page-header-info">
+              <h1 class="page-title">Kütüphanem</h1>
+              <span class="song-count" id="song-count">0 şarkı</span>
+            </div>
+            <!-- Library Search Bar -->
+            <div class="searchbar" id="library-searchbar">
+              <div class="searchbar-inner">
+                <svg class="searchbar-icon" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                </svg>
+                <input
+                  type="text"
+                  id="search-input"
+                  class="searchbar-input"
+                  placeholder="Kütüphanede ara..."
+                  autocomplete="off"
+                  spellcheck="false"
+                >
+                <button class="searchbar-clear" id="lib-clear-btn" aria-label="Temizle" style="display:none">
+                  <svg fill="currentColor" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="sticky-scrim"></div>
+        </div>
+
+        <!-- Page body -->
+        <div class="page-body">
+          <div class="library-grid" id="library-grid"></div>
+
+          <div class="empty-library" id="empty-library">
+            <div class="empty-icon">
+              <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+            </div>
+            <h3>Henüz şarkı yok</h3>
+            <p>İndir sekmesine giderek ilk şarkınızı indirin!</p>
+            <button class="btn-primary" onclick="navigateTo('download')">
+              <svg fill="currentColor" viewBox="0 0 24 24" width="18" height="18"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+              Şarkı İndir
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ========== PLAYER BAR ========== -->
+    <footer class="player-bar hidden" id="player-bar">
+      <div class="current-track">
+        <div class="track-cover" id="player-cover"></div>
+        <div class="track-info">
+          <h4 class="track-title" id="player-title">Şarkı Seç</h4>
+          <p class="track-artist" id="player-artist">-</p>
+        </div>
+        <button class="like-btn" id="like-btn" aria-label="Beğen">
+          <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        </button>
+        <button class="close-player-btn" id="close-player-btn" aria-label="Kapat">
+          <svg fill="currentColor" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+
+      <div class="player-controls">
+        <div class="progress-container">
+          <span class="time" id="current-time">0:00</span>
+          <div class="progress-bar" id="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+            <div class="progress-thumb"></div>
+          </div>
+          <span class="time" id="total-time">0:00</span>
+        </div>
+        <div class="control-buttons">
+          <button class="control-btn" id="prev-btn" aria-label="Önceki">
+            <svg fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+          </button>
+          <button class="control-btn main-play" id="play-btn" aria-label="Oynat">
+            <svg id="play-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <button class="control-btn" id="next-btn" aria-label="Sonraki">
+            <svg fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="volume-controls">
+        <button class="control-btn" id="volume-btn" aria-label="Ses">
+          <svg fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+        </button>
+        <div class="volume-bar" id="volume-bar">
+          <div class="volume-fill" id="volume-fill" style="width:70%"></div>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Mobile Bottom Nav -->
+    <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+      <a href="#" class="mobile-nav-item active" data-page="home">
+        <svg fill="currentColor" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+        <span>Ana Sayfa</span>
+      </a>
+      <a href="#" class="mobile-nav-item" data-page="download">
+        <svg fill="currentColor" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+        <span>İndir</span>
+      </a>
+      <a href="#" class="mobile-nav-item" data-page="library">
+        <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+        <span>Kütüphane</span>
+      </a>
+    </nav>
+
+  </div>
+
+  <audio id="audio-player" preload="auto"></audio>
+  <script src="app.js"></script>
+</body>
+</html>

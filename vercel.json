@@ -1,0 +1,16 @@
+{
+  "cleanUrls": true,
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "https://musicx-backend.onrender.com/api/$1"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
+    }
+  ]
+}

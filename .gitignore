@@ -1,0 +1,7 @@
+node_modules/
+library/music/
+library/covers/
+library/songs.json
+.DS_Store
+.env
+*.log
