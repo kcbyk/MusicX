@@ -32,16 +32,18 @@ async function downloadAsMp3(videoUrl, outputPath) {
     extractAudio: true,
     audioFormat: 'mp3',
     audioQuality: '5',
-    format: 'bestaudio[ext=m4a]/bestaudio/best',
+    format: 'bestaudio/best',   // relaxed format: any best audio
     noPlaylist: true,
     noPart: true,
     ffmpegLocation: path.dirname(ffmpegPath),
     output: outputPath,
-    extractorArgs: 'youtube:player_client=ios,web'
+    extractorArgs: 'youtube:player_client=web',  // web client supports cookies
+    jsRuntimes: 'node'                            // use Node.js for signature solving
   };
 
   if (cookiesFile) {
     options.cookies = cookiesFile;
+    console.log('Using cookies for download.');
   }
 
   await ytdlExec(videoUrl, options);
