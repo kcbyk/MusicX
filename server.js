@@ -72,6 +72,24 @@ async function init() {
   if (!await fs.pathExists(DB_FILE)) {
     await fs.writeJson(DB_FILE, []);
   }
+
+  // Grant execution permissions to yt-dlp and ffmpeg binaries on Linux (Render)
+  try {
+    if (process.platform !== 'win32') {
+      const ytdlpBinPath = path.join(__dirname, 'node_modules', 'yt-dlp-exec', 'bin', 'yt-dlp');
+      if (await fs.pathExists(ytdlpBinPath)) {
+        await fs.chmod(ytdlpBinPath, '755');
+        console.log('Granted 755 permissions to yt-dlp binary.');
+      }
+      const ffmpegBinPath = require('@ffmpeg-installer/ffmpeg').path;
+      if (await fs.pathExists(ffmpegBinPath)) {
+        await fs.chmod(ffmpegBinPath, '755');
+        console.log('Granted 755 permissions to ffmpeg binary.');
+      }
+    }
+  } catch (err) {
+    console.warn('Could not set permissions on binaries:', err.message);
+  }
 }
 
 // Extract Video ID
