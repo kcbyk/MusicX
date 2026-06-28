@@ -121,7 +121,8 @@ app.get('/api/search', async (req, res) => {
       dumpSingleJson: true,
       noWarnings: true,
       flatPlaylist: true,
-      extractorArgs: 'youtube:player_client=ios,android'
+      extractorArgs: 'youtube:player_client=ios,android',
+      jsRuntimes: 'node'
     });
 
     const results = [];
@@ -267,7 +268,8 @@ app.post('/api/download', async (req, res) => {
       noPart: true,
       ffmpegLocation: path.dirname(ffmpegPath),
       output: musicPath,
-      extractorArgs: 'youtube:player_client=ios,android'
+      extractorArgs: 'youtube:player_client=ios,android',
+      jsRuntimes: 'node'
     });
 
     const newSong = {
