@@ -120,7 +120,8 @@ app.get('/api/search', async (req, res) => {
     const searchResult = await ytdl(`ytsearch8:${q.replace(/"/g, '')}`, {
       dumpSingleJson: true,
       noWarnings: true,
-      flatPlaylist: true
+      flatPlaylist: true,
+      extractorArgs: 'youtube:player_client=ios,android'
     });
 
     const results = [];
@@ -265,7 +266,8 @@ app.post('/api/download', async (req, res) => {
       noPlaylist: true,
       noPart: true,
       ffmpegLocation: path.dirname(ffmpegPath),
-      output: musicPath
+      output: musicPath,
+      extractorArgs: 'youtube:player_client=ios,android'
     });
 
     const newSong = {
