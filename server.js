@@ -193,7 +193,25 @@ app.post('/api/download', async (req, res) => {
     const audio = await axios.get(`${fileUrl}${fileUrl.includes('?') ? '&' : '?'}key=${encodeURIComponent(MUSIC_API_KEY || '')}`, { responseType: 'stream', timeout: 120000 });
     await new Promise((resolve, reject) => { const out = fs.createWriteStream(musicPath); audio.data.pipe(out); out.on('finish', resolve); out.on('error', reject); });
 
-    const song = { id, title: safeBase, artist: requestedArtist || 'Music API', duration: 0, musicFile: musicFileName, coverFile: null, addedAt: new Date().toISOString() };
+    let coverFile = null;
+    const coverUrl = youtubeCover(url);
+    if (coverUrl) {
+      try {
+        coverFile = `${id}.jpg`;
+        const coverResponse = await axios.get(coverUrl, { responseType: 'stream', timeout: 15000 });
+        const coverOut = fs.createWriteStream(path.join(COVERS_DIR, coverFile));
+        await new Promise((resolve, reject) => {
+          coverResponse.data.pipe(coverOut);
+          coverOut.on('finish', resolve);
+          coverOut.on('error', reject);
+        });
+      } catch (coverError) {
+        console.warn('Kapak indirilemedi:', coverError.message);
+        coverFile = null;
+      }
+    }
+
+    const song = { id, title: safeBase, artist: requestedArtist || 'Music API', duration: 0, musicFile: musicFileName, coverFile, addedAt: new Date().toISOString() };
     const songs = await fs.readJson(DB_FILE); songs.unshift(song); await fs.writeJson(DB_FILE, songs);
     res.json(song);
   } catch (error) {
