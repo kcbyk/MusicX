@@ -135,6 +135,11 @@ async function musicApi(pathname, params = {}, options = {}) {
   return response.data;
 }
 
+function youtubeCover(url) {
+  const match = String(url || '').match(/(?:v=|youtu\.be\/|youtube\.com\/(?:shorts\/|embed\/))([A-Za-z0-9_-]{11})/);
+  return match ? `https://i.ytimg.com/vi/${match[1]}/hqdefault.jpg` : null;
+}
+
 // Search is delegated to the personal Song API (YouTube/SoundCloud/Archive/TikTok).
 app.get('/api/search', async (req, res) => {
   try {
@@ -146,7 +151,7 @@ app.get('/api/search', async (req, res) => {
       title: item.baslik || 'Bilinmeyen Başlık',
       artist: item.kanal || item.sanatci || item.kaynak || 'Bilinmeyen Sanatçı',
       duration: Number(item.sure || 0),
-      coverUrl: item.kapak_url || '',
+      coverUrl: item.kapak_url || youtubeCover(item.url) || '',
       url: item.url
     }));
     res.json(results);
