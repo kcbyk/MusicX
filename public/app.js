@@ -513,7 +513,7 @@ async function handleSearch() {
   if (searchResultsEl) searchResultsEl.style.display = 'none';
   previewData = null;
 
-  if (isYTUrl(val)) {
+  if (false && isYTUrl(val)) {
     showLoading('Şarkı bilgileri alınıyor...');
     try {
       const res = await fetch('/api/song-info?url=' + encodeURIComponent(val));
@@ -621,7 +621,7 @@ function initDownload() {
       const res = await fetch('/api/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: previewData.url })
+        body: JSON.stringify({ url: previewData.url, title: previewData.title, artist: previewData.artist })
       });
 
       if (!res.ok) {

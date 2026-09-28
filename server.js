@@ -120,186 +120,80 @@ function getVideoId(url) {
   return match && match[2].length === 11 ? match[2] : null;
 }
 
-// ===== SEARCH API =====
+// ===== Song API integration =====
+const MUSIC_API_URL = (process.env.MUSIC_API_URL || 'https://mp3-apisi.onrender.com').replace(/\/$/, '');
+const MUSIC_API_KEY = process.env.MUSIC_API_KEY;
+if (!MUSIC_API_KEY) console.warn('⚠️ MUSIC_API_KEY tanımlı değil. .env/hosting secret olarak ekleyin.');
+
+function apiParams(extra = {}) {
+  return new URLSearchParams({ ...extra, key: MUSIC_API_KEY || '' });
+}
+
+async function musicApi(pathname, params = {}, options = {}) {
+  const url = `${MUSIC_API_URL}${pathname}?${apiParams(params)}`;
+  const response = await axios({ url, timeout: options.timeout || 30000, ...options });
+  return response.data;
+}
+
+// Search is delegated to the personal Song API (YouTube/SoundCloud/Archive/TikTok).
 app.get('/api/search', async (req, res) => {
   try {
-    const { q } = req.query;
-    if (!q || !q.trim()) {
-      return res.status(400).json({ error: 'Arama sorgusu gerekli' });
-    }
-
-    const cacheKey = q.toLowerCase().trim();
-    const cached = getCached(cacheKey);
-    if (cached) {
-      console.log('Cache hit:', q);
-      return res.json(cached);
-    }
-
-    console.log('Arama yapılıyor:', q);
-
-    // Search uses yt-dlp-exec (works fine on Render)
-    const searchResult = await ytdlSearch(`ytsearch8:${q.replace(/"/g, '')}`, {
-      dumpSingleJson: true,
-      noWarnings: true,
-      flatPlaylist: true,
-      extractorArgs: 'youtube:player_client=ios,android'
-    });
-
-    const results = [];
-    const entries = searchResult.entries || [];
-
-    for (const entry of entries) {
-      const id = entry.id;
-      if (!id || id.length !== 11) continue;
-
-      results.push({
-        id,
-        title:    entry.title    || 'Bilinmeyen Başlık',
-        artist:   entry.channel  || entry.uploader || 'Bilinmeyen Sanatçı',
-        duration: entry.duration || 0,
-        coverUrl: `https://i.ytimg.com/vi/${id}/mqdefault.jpg`,
-        url:      entry.url || `https://www.youtube.com/watch?v=${id}`
-      });
-    }
-
-    console.log(`Bulunan sonuç sayısı: ${results.length}`);
-
-    if (results.length > 0) {
-      setCache(cacheKey, results);
-    }
-
+    const q = String(req.query.q || '').trim();
+    if (!q) return res.status(400).json({ error: 'Arama sorgusu gerekli' });
+    const data = await musicApi('/api/v1/search', { q, limit: 20 });
+    const results = (data.sonuclar || []).map((item, index) => ({
+      id: String(item.id ?? `${item.kaynak}-${index}`),
+      title: item.baslik || 'Bilinmeyen Başlık',
+      artist: item.kanal || item.sanatci || item.kaynak || 'Bilinmeyen Sanatçı',
+      duration: Number(item.sure || 0),
+      coverUrl: item.kapak_url || '',
+      url: item.url
+    }));
     res.json(results);
   } catch (error) {
-    console.error('Arama hatası:', error.message);
-    res.status(500).json({ error: 'Arama başarısız: ' + error.message });
+    console.error('Music API arama hatası:', error.response?.data || error.message);
+    res.status(error.response?.status || 502).json({ error: 'Müzik API araması başarısız' });
   }
 });
 
-// ===== SONG INFO API =====
-app.get('/api/song-info', async (req, res) => {
-  try {
-    const { url } = req.query;
-    if (!url) {
-      return res.status(400).json({ error: 'Geçerli bir YouTube URL\'si girin.' });
-    }
-
-    const videoId = getVideoId(url);
-    if (!videoId) {
-      return res.status(400).json({ error: 'Geçerli bir YouTube URL\'si girin.' });
-    }
-
-    const cacheKey = 'info_' + videoId;
-    const cached = getCached(cacheKey);
-    if (cached) return res.json(cached);
-
-    console.log('Bilgi alınıyor:', url);
-
-    const oembedRes = await axios.get(
-      `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
-      { timeout: 8000 }
-    );
-
-    const result = {
-      id: videoId,
-      title: oembedRes.data.title,
-      artist: oembedRes.data.author_name,
-      duration: 0,
-      coverUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-      url: url
-    };
-    
-    setCache(cacheKey, result);
-    res.json(result);
-  } catch (error) {
-    console.error('Şarkı bilgisi hatası:', error.message);
-    res.status(500).json({ error: 'Şarkı bilgileri alınamadı: ' + error.message });
-  }
-});
-
-// ===== DOWNLOAD API =====
+// Convert selected URL through the external API, then save the returned file locally.
 app.post('/api/download', async (req, res) => {
   try {
-    const { url } = req.body;
-    if (!url) {
-      return res.status(400).json({ error: 'Geçerli bir YouTube URL\'si girin.' });
+    const { url, title: requestedTitle, artist: requestedArtist } = req.body || {};
+    if (!url) return res.status(400).json({ error: 'Geçerli bir müzik URL\'si gerekli.' });
+
+    const started = await musicApi('/api/v1/convert', {}, {
+      method: 'POST',
+      data: { url, baslik: requestedTitle || '', kaynak: 'music-api' },
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 30000
+    });
+    if (!started.job_id) throw new Error('API job_id döndürmedi');
+
+    let status;
+    for (let i = 0; i < 180; i++) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      status = await musicApi(`/api/v1/status/${encodeURIComponent(started.job_id)}`);
+      if (status.durum === 'bitti' || status.durum === 'hata') break;
+    }
+    if (!status || status.durum !== 'bitti' || !status.dosya_url) {
+      return res.status(504).json({ error: status?.mesaj || 'İndirme zaman aşımına uğradı' });
     }
 
-    const videoId = getVideoId(url);
-    if (!videoId) {
-      return res.status(400).json({ error: 'Geçerli bir YouTube URL\'si girin.' });
-    }
-
-    const musicFileName = `${videoId}.mp3`;
-    const coverFileName = `${videoId}.jpg`;
+    const fileUrl = new URL(status.dosya_url, MUSIC_API_URL).toString();
+    const safeBase = String(requestedTitle || status.dosya || 'music').replace(/[^\w\-ğüşöçıİĞÜŞÖÇ ]/gi, '').trim().slice(0, 80) || 'music';
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const musicFileName = `${id}.mp3`;
     const musicPath = path.join(MUSIC_DIR, musicFileName);
-    const coverPath = path.join(COVERS_DIR, coverFileName);
+    const audio = await axios.get(`${fileUrl}${fileUrl.includes('?') ? '&' : '?'}key=${encodeURIComponent(MUSIC_API_KEY || '')}`, { responseType: 'stream', timeout: 120000 });
+    await new Promise((resolve, reject) => { const out = fs.createWriteStream(musicPath); audio.data.pipe(out); out.on('finish', resolve); out.on('error', reject); });
 
-    // Zaten var mı?
-    const existingSongs = await fs.readJson(DB_FILE);
-    const existingSong = existingSongs.find(s => s.id === videoId);
-    if (existingSong && await fs.pathExists(musicPath)) {
-      console.log('Şarkı zaten mevcut:', existingSong.title);
-      return res.json(existingSong);
-    }
-
-    const coverUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-
-    const [coverResult, infoResult] = await Promise.allSettled([
-      new Promise((resolve, reject) => {
-        axios({
-          url: coverUrl,
-          responseType: 'stream',
-          timeout: 8000
-        }).then(coverResponse => {
-          const writeStream = fs.createWriteStream(coverPath);
-          coverResponse.data.pipe(writeStream);
-          writeStream.on('finish', () => resolve(true));
-          writeStream.on('error', err => {
-            coverResponse.data.destroy();
-            reject(err);
-          });
-        }).catch(reject);
-      }),
-      axios.get(
-        `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
-        { timeout: 8000 }
-      )
-    ]);
-
-    const coverDownloaded = coverResult.status === 'fulfilled';
-    let title = videoId;
-    let artist = 'Unknown';
-    
-    if (infoResult.status === 'fulfilled') {
-      title = infoResult.value.data.title || videoId;
-      artist = infoResult.value.data.author_name || 'Unknown';
-    }
-
-    console.log('Şarkı indiriliyor:', title);
-
-    // Download with @distube/ytdl-core (InnerTube API, no binary, no bot block)
-    await downloadAsMp3(url, musicPath);
-
-    const newSong = {
-      id: videoId,
-      title,
-      artist,
-      duration: 0,
-      musicFile: musicFileName,
-      coverFile: coverDownloaded ? coverFileName : null,
-      addedAt: new Date().toISOString()
-    };
-
-    // Save to ephemeral memory database
-    const songs = await fs.readJson(DB_FILE);
-    songs.unshift(newSong);
-    await fs.writeJson(DB_FILE, songs);
-
-    console.log('Şarkı başarıyla indirildi:', title);
-    res.json(newSong);
+    const song = { id, title: safeBase, artist: requestedArtist || 'Music API', duration: 0, musicFile: musicFileName, coverFile: null, addedAt: new Date().toISOString() };
+    const songs = await fs.readJson(DB_FILE); songs.unshift(song); await fs.writeJson(DB_FILE, songs);
+    res.json(song);
   } catch (error) {
-    console.error('İndirme hatası:', error.message);
-    res.status(500).json({ error: 'İndirme başarısız oldu: ' + error.message });
+    console.error('Music API indirme hatası:', error.response?.data || error.message);
+    res.status(error.response?.status || 502).json({ error: 'İndirme başarısız oldu' });
   }
 });
 
