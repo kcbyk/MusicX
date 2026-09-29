@@ -165,37 +165,36 @@ app.get('/api/search', async (req, res) => {
 app.post('/api/download', async (req, res) => {
   try {
     const { url, title: requestedTitle, artist: requestedArtist } = req.body || {};
-    if (!url) return res.status(400).json({ error: 'Geçerli bir müzik URL\'si gerekli.' });
+    if (!url && !requestedTitle) return res.status(400).json({ error: 'Geçerli bir müzik URL\'si veya başlık gerekli.' });
 
     const safeBase = String(requestedTitle || 'music').replace(/[^\w\-ğüşöçıİĞÜŞÖÇ ]/gi, '').trim().slice(0, 80) || 'music';
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const musicFileName = `${id}.mp3`;
     const musicPath = path.join(MUSIC_DIR, musicFileName);
+    const searchQuery = `${requestedArtist || ''} ${requestedTitle || ''}`.trim();
 
-    let downloaded = false;
-
-    // 1. Önce HIZLI direkt CDN link çözümlemeyi dene (~0.5 - 1.5 sn)
+    // 1. Önce HIZLI direkt CDN link çözümlemeyi dene (~0.2 - 0.8 sn)
+    let audioStreamUrl = null;
     try {
-      const linkData = await musicApi('/api/v1/link', { url: url, format: 'mp3', kalite: '320' }, { timeout: 10000 });
+      const linkData = await musicApi('/api/v1/link', {
+        q: searchQuery || undefined,
+        url: url || undefined,
+        hizli: 1,
+        format: 'mp3',
+        kalite: '320'
+      }, { timeout: 8000 });
       if (linkData && linkData.link) {
-        const audio = await axios.get(linkData.link, { responseType: 'stream', timeout: 30000 });
-        await new Promise((resolve, reject) => {
-          const out = fs.createWriteStream(musicPath);
-          audio.data.pipe(out);
-          out.on('finish', resolve);
-          out.on('error', reject);
-        });
-        downloaded = true;
+        audioStreamUrl = linkData.link;
       }
     } catch (fastErr) {
       console.warn('Hızlı link çözümü olamadı, kuyruklu convert yöntemine geçiliyor:', fastErr.message);
     }
 
-    // 2. Hızlı link olmadıysa -> Kuyruklu convert yöntemi (yedek)
-    if (!downloaded) {
+    // 2. Hızlı link bulunamadıysa -> Convert API ile dene
+    if (!audioStreamUrl) {
       const started = await musicApi('/api/v1/convert', {}, {
         method: 'POST',
-        data: { url, baslik: requestedTitle || '', kaynak: 'music-api' },
+        data: { url: url || searchQuery, baslik: requestedTitle || '', kaynak: 'music-api' },
         headers: { 'Content-Type': 'application/json' },
         timeout: 30000
       });
@@ -212,35 +211,47 @@ app.post('/api/download', async (req, res) => {
       }
 
       const fileUrl = new URL(status.dosya_url, MUSIC_API_URL).toString();
-      const audio = await axios.get(`${fileUrl}${fileUrl.includes('?') ? '&' : '?'}key=${encodeURIComponent(MUSIC_API_KEY || '')}`, { responseType: 'stream', timeout: 120000 });
-      await new Promise((resolve, reject) => { const out = fs.createWriteStream(musicPath); audio.data.pipe(out); out.on('finish', resolve); out.on('error', reject); });
+      audioStreamUrl = `${fileUrl}${fileUrl.includes('?') ? '&' : '?'}key=${encodeURIComponent(MUSIC_API_KEY || '')}`;
     }
 
-    // Kapak indirme
+    // 3. SES VE KAPAK İNDİRMESİNİ PARALEL (Promise.all) BAŞLAT (Maksimum Hız)
     let coverFile = null;
     let coverUrl = youtubeCover(url);
-    if (!coverUrl && requestedTitle) {
-      try {
-        const kapakData = await musicApi('/api/v1/kapak', { q: `${requestedArtist || ''} ${requestedTitle}`.trim() });
-        if (kapakData && kapakData.kapak_url) coverUrl = kapakData.kapak_url;
-      } catch (e) {}
-    }
 
-    if (coverUrl) {
+    const downloadAudioPromise = async () => {
+      const audio = await axios.get(audioStreamUrl, { responseType: 'stream', timeout: 45000 });
+      await new Promise((resolve, reject) => {
+        const out = fs.createWriteStream(musicPath);
+        audio.data.pipe(out);
+        out.on('finish', resolve);
+        out.on('error', reject);
+      });
+    };
+
+    const downloadCoverPromise = async () => {
       try {
-        coverFile = `${id}.jpg`;
-        const coverResponse = await axios.get(coverUrl, { responseType: 'stream', timeout: 15000 });
-        const coverOut = fs.createWriteStream(path.join(COVERS_DIR, coverFile));
-        await new Promise((resolve, reject) => {
-          coverResponse.data.pipe(coverOut);
-          coverOut.on('finish', resolve);
-          coverOut.on('error', reject);
-        });
+        if (!coverUrl && searchQuery) {
+          const kapakData = await musicApi('/api/v1/kapak', { q: searchQuery }).catch(() => null);
+          if (kapakData && kapakData.kapak_url) coverUrl = kapakData.kapak_url;
+        }
+        if (coverUrl) {
+          coverFile = `${id}.jpg`;
+          const coverResponse = await axios.get(coverUrl, { responseType: 'stream', timeout: 10000 });
+          const coverOut = fs.createWriteStream(path.join(COVERS_DIR, coverFile));
+          await new Promise((resolve, reject) => {
+            coverResponse.data.pipe(coverOut);
+            coverOut.on('finish', resolve);
+            coverOut.on('error', reject);
+          });
+        }
       } catch (coverError) {
         console.warn('Kapak indirilemedi:', coverError.message);
         coverFile = null;
       }
-    }
+    };
+
+    // İkisini aynı anda indir:
+    await Promise.all([downloadAudioPromise(), downloadCoverPromise()]);
 
     const song = { id, title: safeBase, artist: requestedArtist || 'Music API', duration: 0, musicFile: musicFileName, coverFile, addedAt: new Date().toISOString() };
     const songs = await fs.readJson(DB_FILE); songs.unshift(song); await fs.writeJson(DB_FILE, songs);
