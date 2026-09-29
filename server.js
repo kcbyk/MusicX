@@ -173,49 +173,20 @@ app.post('/api/download', async (req, res) => {
     const musicPath = path.join(MUSIC_DIR, musicFileName);
     const searchQuery = `${requestedArtist || ''} ${requestedTitle || ''}`.trim();
 
-    // 1. Önce HIZLI direkt CDN link çözümlemeyi dene (~0.2 - 0.8 sn)
-    let audioStreamUrl = null;
-    try {
-      // Not: Arama sorgusu (q) verilirse YouTube dönüştürme kuyruğu beklemeden 0.2 sn'de doğrudan CDN linki yakalar!
-      const linkParams = searchQuery ? { q: searchQuery, hizli: 1, format: 'mp3', kalite: '320' } : { url: url, hizli: 1, format: 'mp3', kalite: '320' };
-      const linkData = await musicApi('/api/v1/link', linkParams, { timeout: 10000 });
-      if (linkData && linkData.link) {
-        audioStreamUrl = linkData.link;
-      }
-    } catch (fastErr) {
-      console.warn('Hızlı link çözümü olamadı, kuyruklu convert yöntemine geçiliyor:', fastErr.message);
-    }
+    // YouTube 320k Yüksek Kalite Doğrudan İndirme Uç Noktası
+    const targetUrl = url || (searchQuery ? `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}` : '');
+    const directDlUrl = `${MUSIC_API_URL}/api/v1/download?url=${encodeURIComponent(targetUrl)}&format=mp3&kalite=320&key=${encodeURIComponent(MUSIC_API_KEY || '')}`;
 
-    // 2. Hızlı link bulunamadıysa -> Convert API ile dene
-    if (!audioStreamUrl) {
-      const started = await musicApi('/api/v1/convert', {}, {
-        method: 'POST',
-        data: { url: url || searchQuery, baslik: requestedTitle || '', kaynak: 'music-api' },
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 30000
-      });
-      if (!started.job_id) throw new Error('API job_id döndürmedi');
-
-      let status;
-      for (let i = 0; i < 45; i++) {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        status = await musicApi(`/api/v1/status/${encodeURIComponent(started.job_id)}`);
-        if (status.durum === 'bitti' || status.durum === 'hata') break;
-      }
-      if (!status || status.durum !== 'bitti' || !status.dosya_url) {
-        return res.status(504).json({ error: status?.mesaj || 'İndirme zaman aşımına uğradı' });
-      }
-
-      const fileUrl = new URL(status.dosya_url, MUSIC_API_URL).toString();
-      audioStreamUrl = `${fileUrl}${fileUrl.includes('?') ? '&' : '?'}key=${encodeURIComponent(MUSIC_API_KEY || '')}`;
-    }
-
-    // 3. SES VE KAPAK İNDİRMESİNİ PARALEL (Promise.all) BAŞLAT (Maksimum Hız)
+    // SES VE KAPAK İNDİRMESİNİ PARALEL (Promise.all) BAŞLAT
     let coverFile = null;
     let coverUrl = youtubeCover(url);
 
     const downloadAudioPromise = async () => {
-      const audio = await axios.get(audioStreamUrl, { responseType: 'stream', timeout: 45000 });
+      const audio = await axios.get(directDlUrl, {
+        responseType: 'stream',
+        timeout: 60000,
+        maxRedirects: 5
+      });
       await new Promise((resolve, reject) => {
         const out = fs.createWriteStream(musicPath);
         audio.data.pipe(out);
@@ -232,7 +203,7 @@ app.post('/api/download', async (req, res) => {
         }
         if (coverUrl) {
           coverFile = `${id}.jpg`;
-          const coverResponse = await axios.get(coverUrl, { responseType: 'stream', timeout: 10000 });
+          const coverResponse = await axios.get(coverUrl, { responseType: 'stream', timeout: 15000 });
           const coverOut = fs.createWriteStream(path.join(COVERS_DIR, coverFile));
           await new Promise((resolve, reject) => {
             coverResponse.data.pipe(coverOut);
@@ -249,12 +220,12 @@ app.post('/api/download', async (req, res) => {
     // İkisini aynı anda indir:
     await Promise.all([downloadAudioPromise(), downloadCoverPromise()]);
 
-    const song = { id, title: safeBase, artist: requestedArtist || 'Music API', duration: 0, musicFile: musicFileName, coverFile, addedAt: new Date().toISOString() };
+    const song = { id, title: safeBase, artist: requestedArtist || 'YouTube Music', duration: 0, musicFile: musicFileName, coverFile, addedAt: new Date().toISOString() };
     const songs = await fs.readJson(DB_FILE); songs.unshift(song); await fs.writeJson(DB_FILE, songs);
     res.json(song);
   } catch (error) {
     console.error('Music API indirme hatası:', error.response?.data || error.message);
-    res.status(error.response?.status || 502).json({ error: 'İndirme başarısız oldu' });
+    res.status(error.response?.status || 502).json({ error: 'İndirme başarısız oldu: ' + (error.message || '') });
   }
 });
 
