@@ -176,13 +176,9 @@ app.post('/api/download', async (req, res) => {
     // 1. Önce HIZLI direkt CDN link çözümlemeyi dene (~0.2 - 0.8 sn)
     let audioStreamUrl = null;
     try {
-      const linkData = await musicApi('/api/v1/link', {
-        q: searchQuery || undefined,
-        url: url || undefined,
-        hizli: 1,
-        format: 'mp3',
-        kalite: '320'
-      }, { timeout: 8000 });
+      // Not: Arama sorgusu (q) verilirse YouTube dönüştürme kuyruğu beklemeden 0.2 sn'de doğrudan CDN linki yakalar!
+      const linkParams = searchQuery ? { q: searchQuery, hizli: 1, format: 'mp3', kalite: '320' } : { url: url, hizli: 1, format: 'mp3', kalite: '320' };
+      const linkData = await musicApi('/api/v1/link', linkParams, { timeout: 10000 });
       if (linkData && linkData.link) {
         audioStreamUrl = linkData.link;
       }
