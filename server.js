@@ -182,17 +182,37 @@ app.post('/api/download', async (req, res) => {
     let coverUrl = youtubeCover(url);
 
     const downloadAudioPromise = async () => {
-      const audio = await axios.get(directDlUrl, {
-        responseType: 'stream',
-        timeout: 60000,
-        maxRedirects: 5
-      });
-      await new Promise((resolve, reject) => {
-        const out = fs.createWriteStream(musicPath);
-        audio.data.pipe(out);
-        out.on('finish', resolve);
-        out.on('error', reject);
-      });
+      try {
+        const audio = await axios.get(directDlUrl, {
+          responseType: 'stream',
+          timeout: 30000,
+          maxRedirects: 5
+        });
+        await new Promise((resolve, reject) => {
+          const out = fs.createWriteStream(musicPath);
+          audio.data.pipe(out);
+          out.on('finish', resolve);
+          out.on('error', reject);
+        });
+      } catch (err) {
+        console.warn('URL ile indirme başarısız oldu, q sorgusu ile deneniyor:', err.message);
+        if (searchQuery) {
+          const fallbackDlUrl = `${MUSIC_API_URL}/api/v1/download?q=${encodeURIComponent(searchQuery)}&format=mp3&kalite=320&key=${encodeURIComponent(MUSIC_API_KEY || '')}`;
+          const audio = await axios.get(fallbackDlUrl, {
+            responseType: 'stream',
+            timeout: 30000,
+            maxRedirects: 5
+          });
+          await new Promise((resolve, reject) => {
+            const out = fs.createWriteStream(musicPath);
+            audio.data.pipe(out);
+            out.on('finish', resolve);
+            out.on('error', reject);
+          });
+        } else {
+          throw err;
+        }
+      }
     };
 
     const downloadCoverPromise = async () => {
